@@ -36,10 +36,10 @@ jobs:
         run: flutter pub get
 
       - name: Analyze code
-        run: flutter analyze
+        run: flutter analyze lib test
 
       - name: Run tests
-        run: flutter test
+        run: flutter test test
 
       - name: Build dev web bundle
         # Build once in CI to catch broken env defines or web-only regressions early.
