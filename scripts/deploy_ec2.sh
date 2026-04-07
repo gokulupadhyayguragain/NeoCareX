@@ -21,9 +21,12 @@ PATIENT_APP_CONTAINER_NAME="${PATIENT_APP_CONTAINER_NAME:-patient_app_${PATIENT_
 cd "$PATIENT_APP_APP_DIR"
 
 # Keep the server checkout aligned with the branch that triggered the deploy.
-git fetch --all --prune
+# Use a hard reset because the branch on the deploy host can diverge after
+# force-pushes or local experimentation on the EC2 box.
+git fetch origin "$TARGET_BRANCH" --prune
 git checkout "$TARGET_BRANCH"
-git pull origin "$TARGET_BRANCH"
+git reset --hard "origin/$TARGET_BRANCH"
+git clean -fd
 
 # Render the concrete Nginx config from the template before the Docker build.
 PATIENT_APP_DOMAIN="$PATIENT_APP_DOMAIN" \
