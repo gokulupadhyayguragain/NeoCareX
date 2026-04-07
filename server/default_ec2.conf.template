@@ -1,0 +1,43 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __PATIENT_APP_SERVER_NAME__;
+
+    location / {
+        return 301 https://__PATIENT_APP_DOMAIN__$request_uri;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __PATIENT_APP_DOMAIN__;
+
+    location / {
+        return 301 https://__PATIENT_APP_DOMAIN__$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name __PATIENT_APP_DOMAIN__;
+
+    ssl_certificate /etc/ssl/certs/fullchain.pem;
+    ssl_certificate_key /etc/ssl/private/privkey.pem;
+
+    root /usr/share/nginx/html;
+    error_page 497 301 =307 https://__PATIENT_APP_DOMAIN__$request_uri;
+
+    location ~ ^/.well-known/acme-challenge/ {
+        allow all;
+        root /var/www/;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

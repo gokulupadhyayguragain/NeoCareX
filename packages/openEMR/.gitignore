@@ -1,0 +1,13 @@
+# IDE realted
+.idea/
+.vscode/
+
+# dart and flutter related
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+

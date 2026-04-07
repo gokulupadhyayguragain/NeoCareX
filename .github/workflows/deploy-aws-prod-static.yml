@@ -1,0 +1,132 @@
+# Production deployment is static hosting on AWS:
+# GitHub Actions builds the Flutter web bundle, uploads it to S3, then invalidates
+# CloudFront. This avoids SSH, server-side builds, and VM drift in prod.
+name: Deploy Patient App to AWS Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: patient-app-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: ${{ vars.PATIENT_APP_URL }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Validate production deployment configuration
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+          AWS_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+          PATIENT_APP_URL: ${{ vars.PATIENT_APP_URL }}
+        run: |
+          set -euo pipefail
+
+          test -n "$AWS_REGION"
+          test -n "$AWS_S3_BUCKET"
+          test -n "$AWS_CLOUDFRONT_DISTRIBUTION_ID"
+          test -n "$PATIENT_APP_URL"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.35.3
+          cache: true
+
+      - name: Enable Flutter web
+        run: flutter config --enable-web
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build prod web bundle
+        # Production build uses the prod define file. Review prod_env.json carefully
+        # before the first live release because Flutter web embeds these values.
+        run: flutter build web --release --dart-define-from-file=env/prod_env.json
+
+      - name: Upload cacheable assets to S3
+        env:
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+        run: |
+          # Upload the whole site first.
+          # We then overwrite entrypoint files below with strict no-cache headers
+          # so browsers do not keep stale app shells after a release.
+          aws s3 sync build/web "s3://${AWS_S3_BUCKET}" \
+            --delete \
+            --cache-control "public,max-age=86400" \
+            --only-show-errors
+
+      - name: Upload no-cache entrypoint files
+        env:
+          AWS_S3_BUCKET: ${{ vars.AWS_S3_BUCKET }}
+        run: |
+          set -euo pipefail
+
+          # These files control app bootstrapping and asset discovery.
+          # If they are cached too aggressively, users can load a broken mix of old
+          # and new frontend assets after deployment.
+          no_cache_files=(
+            "index.html"
+            "main.dart.js"
+            "flutter.js"
+            "flutter_bootstrap.js"
+            "flutter_service_worker.js"
+            "manifest.json"
+            "version.json"
+            "assets/AssetManifest.json"
+            "assets/AssetManifest.bin"
+            "assets/AssetManifest.bin.json"
+            "assets/FontManifest.json"
+            "assets/NOTICES"
+            "assets/NativeAssetsManifest.json"
+          )
+
+          for file in "${no_cache_files[@]}"; do
+            if [ -f "build/web/${file}" ]; then
+              aws s3 cp "build/web/${file}" "s3://${AWS_S3_BUCKET}/${file}" \
+                --cache-control "no-cache,no-store,must-revalidate,max-age=0" \
+                --only-show-errors
+            fi
+          done
+
+      - name: Invalidate CloudFront cache
+        env:
+          AWS_CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          # A full invalidation is more expensive than path-only invalidation,
+          # but it is simpler and safer for early production rollouts.
+          aws cloudfront create-invalidation \
+            --distribution-id "${AWS_CLOUDFRONT_DISTRIBUTION_ID}" \
+            --paths "/*"
+
+      - name: Smoke test
+        env:
+          PATIENT_APP_URL: ${{ vars.PATIENT_APP_URL }}
+        run: |
+          curl --retry 6 --retry-connrefused --retry-delay 10 -fsSLI "${PATIENT_APP_URL}"

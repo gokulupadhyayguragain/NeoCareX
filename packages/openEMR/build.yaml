@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          include_if_null: false
+          explicit_to_json: true
+      build_web_compilers:entrypoint:
+        options:
+          compiler: dart2js

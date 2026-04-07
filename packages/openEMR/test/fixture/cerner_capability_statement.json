@@ -1,0 +1,7 @@
+{
+  "authorization_endpoint": "AE",
+  "token_endpoint": "TE",
+  "revocation_endpoint": "RE",
+  "management_endpoint": "ME",
+  "introspection_endpoint": "IE"
+}

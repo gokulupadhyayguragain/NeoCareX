@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "828975767865",
+    "project_id": "rook-51b6a",
+    "storage_bucket": "rook-51b6a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828975767865:android:b859a26076938a88cfc8e8",
+        "android_client_info": {
+          "package_name": "com.example.patient_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBk5o5Of7l69xZZ8oRXTEMYxgdV1k_I0ow"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:828975767865:android:a34bf4ece205f1afcfc8e8",
+        "android_client_info": {
+          "package_name": "com.mycompany.CounterApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBk5o5Of7l69xZZ8oRXTEMYxgdV1k_I0ow"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

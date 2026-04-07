@@ -1,0 +1,119 @@
+# Non-prod deployment workflow.
+# Branches are mapped to GitHub Environments, and each environment should point
+# to the correct AWS region through its own EC2 host and domain variables.
+name: Deploy Patient App to EC2
+
+on:
+  push:
+    branches:
+      - develop
+      - staging
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target EC2 environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      github_environment: ${{ steps.resolve.outputs.github_environment }}
+      dart_define_file: ${{ steps.resolve.outputs.dart_define_file }}
+
+    steps:
+      - name: Resolve target environment
+        # Keep the branch-to-environment mapping explicit and easy to debug.
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || '' }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            target_env="$INPUT_ENVIRONMENT"
+          elif [ "$REF_NAME" = "develop" ]; then
+            target_env="dev"
+          elif [ "$REF_NAME" = "staging" ]; then
+            target_env="staging"
+          else
+            echo "No deployment mapping exists for branch: $REF_NAME" >&2
+            exit 1
+          fi
+
+          case "$target_env" in
+            dev)
+              define_file="env/dev_env.json"
+              ;;
+            staging)
+              define_file="env/prod_dev_env.json"
+              ;;
+            *)
+              echo "Unsupported environment: $target_env" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "github_environment=$target_env" >> "$GITHUB_OUTPUT"
+          echo "dart_define_file=$define_file" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.prepare.outputs.github_environment }}
+      url: ${{ vars.PATIENT_APP_URL }}
+    concurrency:
+      group: patient-app-ec2-${{ needs.prepare.outputs.github_environment }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Trust target host
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ vars.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2
+        env:
+          TARGET_BRANCH: ${{ github.ref_name }}
+          TARGET_ENV: ${{ needs.prepare.outputs.github_environment }}
+          DART_DEFINE_FILE: ${{ needs.prepare.outputs.dart_define_file }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          EC2_APP_DIR: ${{ vars.EC2_APP_DIR }}
+          PATIENT_APP_DOMAIN: ${{ vars.PATIENT_APP_DOMAIN }}
+          PATIENT_APP_TLS_DOMAIN: ${{ vars.PATIENT_APP_TLS_DOMAIN }}
+          PATIENT_APP_SERVER_NAME: ${{ vars.PATIENT_APP_SERVER_NAME }}
+        run: |
+          # Run one small server-side deploy script instead of embedding long SSH logic here.
+          ssh "${EC2_USER}@${EC2_HOST}" \
+            "export TARGET_BRANCH='${TARGET_BRANCH}' \
+             PATIENT_APP_ENV='${TARGET_ENV}' \
+             PATIENT_APP_ENV_FILE='${DART_DEFINE_FILE}' \
+             PATIENT_APP_DOMAIN='${PATIENT_APP_DOMAIN}' \
+             PATIENT_APP_TLS_DOMAIN='${PATIENT_APP_TLS_DOMAIN}' \
+             PATIENT_APP_SERVER_NAME='${PATIENT_APP_SERVER_NAME}' \
+             PATIENT_APP_APP_DIR='${EC2_APP_DIR}' \
+             PATIENT_APP_COMPOSE_FILE='docker-compose-gha.yaml'; bash -s" < scripts/deploy_ec2.sh
+
+      - name: Smoke test
+        run: |
+          # Do not ignore TLS errors here. If the cert or DNS is wrong, fail fast.
+          curl --retry 6 --retry-connrefused --retry-delay 10 -fsSLI "${{ vars.PATIENT_APP_URL }}"

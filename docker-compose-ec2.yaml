@@ -1,0 +1,18 @@
+services:
+  flutter_fhir_dev:
+    container_name: flutter_fhir_dev
+    restart: unless-stopped
+    build:
+      context: "."
+      args:
+        ENV: env/prod_dev_env.json
+        NGINX_FILE: default_ec2.conf
+      dockerfile: Dockerfile
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /var/www/.well-known/acme-challenge:/var/www/.well-known/acme-challenge
+      - /etc/letsencrypt/live/rpm.gheit.co/fullchain.pem:/etc/ssl/certs/fullchain.pem
+      - /etc/letsencrypt/live/rpm.gheit.co/privkey.pem:/etc/ssl/private/privkey.pem
+

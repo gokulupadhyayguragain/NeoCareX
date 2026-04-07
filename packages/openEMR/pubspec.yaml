@@ -1,0 +1,27 @@
+name: openEMR
+description: OpenEMR package for communication with OpenEMR EHR.
+publish_to: none
+version: 1.0.0
+
+environment: 
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  crypto: ^3.0.6
+  dartz: ^0.10.1
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^9.2.2
+  freezed_annotation: ^2.2.0
+  json_annotation: ^4.7.0
+  rxdart: ^0.28.0
+  shared:
+    path: ../shared
+
+dev_dependencies:
+  build_runner: ^2.4.6
+  freezed: ^2.4.5
+  json_serializable: ^6.5.4
+  test: ^1.24.6
+  very_good_analysis: ^7.0.0
+  

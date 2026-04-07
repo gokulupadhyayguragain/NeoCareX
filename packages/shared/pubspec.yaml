@@ -1,0 +1,11 @@
+name: shared
+description: Contains shared functionality between the packages and main packages.
+publish_to: none
+
+environment: 
+  sdk: ">=2.18.4 <3.0.0"
+dependencies:
+  dio: ^4.0.6
+  fhir: ^0.12.0
+
+

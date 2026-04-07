@@ -1,0 +1,11 @@
+
+linter:
+  rules:
+    non_constant_identifier_names: false
+
+analyzer:
+  errors:
+    invalid_annotation_target: ignore
+    avoid_returning_null_for_void: ignore
+  exclude:
+    - lib/**.g.dart

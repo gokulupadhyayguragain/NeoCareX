@@ -1,0 +1,23 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/icons/*",
+      "/*.css",
+      "/*.gif",
+      "/*.ico",
+      "/*.jpg",
+      "/*.js",
+      "/*.json",
+      "/*.png",
+      "/*.svg",
+      "/flutter_service_worker.js"
+    ]
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY"
+  }
+}

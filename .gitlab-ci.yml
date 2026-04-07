@@ -1,0 +1,26 @@
+stages:
+  - deploy
+
+deploy_to_ec2:
+  stage: deploy
+  only:
+    - main
+  before_script:
+    # Install SSH client if it's not installed
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    # Start the SSH agent
+    - eval $(ssh-agent -s)
+    # Add the SSH private key from GitLab CI/CD variables
+    - echo "$SSH_PRIVATE_KEY" | base64 --decode > private_key.pem
+    # Set appropriate permissions on the private key
+    - chmod 600 private_key.pem
+    # Add the private key to the SSH agent
+    - ssh-add private_key.pem
+    # Disable strict host checking to avoid manual prompt for unknown hosts
+    - mkdir -p ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+  script:
+    - echo "Deploying to EC2 dev"
+    - ssh ubuntu@ec2-44-193-233-102.compute-1.amazonaws.com "cd ~/patient_app && git pull origin main && docker system prune -af && docker compose -f docker-compose-ec2.yaml build &&  docker compose -f docker-compose-ec2.yaml up -d"
+  environment:
+    name: development

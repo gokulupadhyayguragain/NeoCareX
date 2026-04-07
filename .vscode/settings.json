@@ -1,0 +1,57 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": false,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/.classpath": true,
+        "**/.project": true,
+        "**/.settings": true,
+        "**/.factorypath": true,
+        "**/*.rest": false,
+        "**/*.g.dart": false,
+        "**/*.freezed.dart": false,
+        "**/*.config.dart": true,
+        "**/*.mocks.dart": true
+    },
+    // "explorerExclude.backup": {},
+    // "cSpell.words": [
+    //     "aidbox",
+    //     "Codeable",
+    //     "dartz",
+    //     "docusign",
+    //     "fhir",
+    //     "Organizationaddress",
+    //     "pdfviewer",
+    //     "rideon",
+    //     "sublist",
+    //     "subloc",
+    //     "syncfusion"
+    // ],
+    "workbench.colorCustomizations": {
+        
+        // "activityBar.activeBackground": "#fa1b49",
+        // "activityBar.background": "#fa1b49",
+        // "activityBar.foreground": "#e7e7e7",
+        // "activityBar.inactiveForeground": "#e7e7e799",
+        // "activityBarBadge.background": "#155e02",
+        // "activityBarBadge.foreground": "#e7e7e7",
+        // // "commandCenter.border": "#e7e7e799",
+        // "sash.hoverBorder": "#fa1b49",
+        // // "statusBar.background": "#dd0531",
+        // "statusBar.foreground": "#e7e7e7",
+        // "statusBarItem.hoverBackground": "#fa1b49",
+        // "statusBarItem.remoteBackground": "#dd0531",
+        // "statusBarItem.remoteForeground": "#e7e7e7",
+        // // "titleBar.activeBackground": "#dd0531",
+        // "titleBar.activeForeground": "#e7e7e7",
+        // "titleBar.inactiveBackground": "#dd053199",
+        // "titleBar.inactiveForeground": "#e7e7e799"
+    },
+    "cmake.sourceDirectory": "G:/101_AsteriskHub/flutter_fhir/windows/flutter",
+    "java.configuration.updateBuildConfiguration": "interactive",
+    // "cmake.sourceDirectory": "G:/101_AsteriskHub/flutter_fhir/windows/flutter",
+    // "peacock.color": "#dd0531"
+}
