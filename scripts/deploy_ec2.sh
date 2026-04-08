@@ -34,8 +34,9 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 cert_dir="/etc/letsencrypt/live/${PATIENT_APP_TLS_DOMAIN}"
-if [[ ! -f "${cert_dir}/fullchain.pem" || ! -f "${cert_dir}/privkey.pem" ]]; then
-	echo "ERROR: TLS certificate files are missing under ${cert_dir}" >&2
+if ! sudo -n test -L "${cert_dir}/fullchain.pem" || ! sudo -n test -L "${cert_dir}/privkey.pem"; then
+	echo "ERROR: TLS certificate files are missing or unreadable under ${cert_dir}" >&2
+	echo "HINT: ensure ubuntu has non-interactive sudo and letsencrypt path access." >&2
 	exit 1
 fi
 
