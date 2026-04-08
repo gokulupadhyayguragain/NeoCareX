@@ -80,6 +80,30 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Render Nginx config for image build
+        env:
+          PATIENT_APP_DOMAIN: ${{ vars.PATIENT_APP_DOMAIN }}
+          PATIENT_APP_SERVER_NAME: ${{ vars.PATIENT_APP_SERVER_NAME }}
+        run: |
+          PATIENT_APP_DOMAIN="$PATIENT_APP_DOMAIN" \
+          PATIENT_APP_SERVER_NAME="$PATIENT_APP_SERVER_NAME" \
+          bash scripts/render_nginx_conf.sh
+
+      - name: Build deploy image on GitHub runner
+        env:
+          DART_DEFINE_FILE: ${{ needs.prepare.outputs.dart_define_file }}
+          PATIENT_APP_IMAGE: patient-app:${{ github.sha }}
+        run: |
+          docker build \
+            --pull \
+            --build-arg ENV="${DART_DEFINE_FILE}" \
+            --build-arg NGINX_FILE="generated/default_ec2.conf" \
+            -t "${PATIENT_APP_IMAGE}" \
+            .
+
+          docker save "${PATIENT_APP_IMAGE}" | gzip > /tmp/patient-app-image.tar.gz
+          ls -lh /tmp/patient-app-image.tar.gz
+
       - name: Load SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -100,6 +124,26 @@ jobs:
             exit 1
           fi
 
+      - name: Upload deploy image bundle to EC2
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+        run: |
+          for attempt in 1 2 3; do
+            echo "INFO: image upload attempt ${attempt}/3"
+            if timeout 30m scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              /tmp/patient-app-image.tar.gz "${EC2_USER}@${EC2_HOST}:/tmp/patient-app-image.tar.gz"; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "ERROR: failed to upload image bundle after 3 attempts." >&2
+              exit 1
+            fi
+
+            sleep 10
+          done
+
       - name: Deploy on EC2
         env:
           TARGET_BRANCH: ${{ github.ref_name }}
@@ -111,6 +155,7 @@ jobs:
           PATIENT_APP_DOMAIN: ${{ vars.PATIENT_APP_DOMAIN }}
           PATIENT_APP_TLS_DOMAIN: ${{ vars.PATIENT_APP_TLS_DOMAIN }}
           PATIENT_APP_SERVER_NAME: ${{ vars.PATIENT_APP_SERVER_NAME }}
+          PATIENT_APP_IMAGE: patient-app:${{ github.sha }}
         run: |
           # Run one small server-side deploy script instead of embedding long SSH logic here.
           for attempt in 1 2 3; do
@@ -123,6 +168,8 @@ jobs:
                PATIENT_APP_TLS_DOMAIN='${PATIENT_APP_TLS_DOMAIN}' \
                PATIENT_APP_SERVER_NAME='${PATIENT_APP_SERVER_NAME}' \
                PATIENT_APP_APP_DIR='${EC2_APP_DIR}' \
+               PATIENT_APP_IMAGE='${PATIENT_APP_IMAGE}' \
+               PATIENT_APP_IMAGE_TAR='/tmp/patient-app-image.tar.gz' \
                PATIENT_APP_COMPOSE_FILE='docker-compose-gha.yaml'; bash -s" < scripts/deploy_ec2.sh; then
               break
             fi

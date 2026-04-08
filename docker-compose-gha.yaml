@@ -2,6 +2,7 @@ services:
   patient_app_web:
     container_name: ${PATIENT_APP_CONTAINER_NAME:-patient_app_web}
     restart: unless-stopped
+    image: ${PATIENT_APP_IMAGE:-patient-app:local}
     build:
       context: "."
       dockerfile: Dockerfile
