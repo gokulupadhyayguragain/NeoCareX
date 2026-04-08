@@ -103,7 +103,7 @@ jobs:
           PATIENT_APP_SERVER_NAME: ${{ vars.PATIENT_APP_SERVER_NAME }}
         run: |
           # Run one small server-side deploy script instead of embedding long SSH logic here.
-          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "${EC2_USER}@${EC2_HOST}" \
+          timeout 45m ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "${EC2_USER}@${EC2_HOST}" \
             "export TARGET_BRANCH='${TARGET_BRANCH}' \
              PATIENT_APP_ENV='${TARGET_ENV}' \
              PATIENT_APP_ENV_FILE='${DART_DEFINE_FILE}' \

@@ -61,7 +61,10 @@ export PATIENT_APP_TLS_DOMAIN
 export PATIENT_APP_CONTAINER_NAME
 
 # Validate Compose before touching running containers.
+echo "INFO: validating compose file ${PATIENT_APP_COMPOSE_FILE}"
 docker compose -f "$PATIENT_APP_COMPOSE_FILE" config >/dev/null
-docker compose -f "$PATIENT_APP_COMPOSE_FILE" build --pull
-docker compose -f "$PATIENT_APP_COMPOSE_FILE" up -d --remove-orphans
+echo "INFO: building containers (timeout: 30m)"
+timeout 30m docker compose -f "$PATIENT_APP_COMPOSE_FILE" build --pull
+echo "INFO: starting containers (timeout: 10m)"
+timeout 10m docker compose -f "$PATIENT_APP_COMPOSE_FILE" up -d --remove-orphans
 docker image prune -af
