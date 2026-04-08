@@ -21,8 +21,13 @@ PATIENT_APP_IMAGE="${PATIENT_APP_IMAGE:-}"
 PATIENT_APP_IMAGE_TAR="${PATIENT_APP_IMAGE_TAR:-}"
 
 if [[ ! -d "$PATIENT_APP_APP_DIR" ]]; then
-	echo "ERROR: PATIENT_APP_APP_DIR does not exist: $PATIENT_APP_APP_DIR" >&2
-	exit 1
+	if [[ -n "$PATIENT_APP_IMAGE" ]]; then
+		echo "INFO: creating missing app directory ${PATIENT_APP_APP_DIR}"
+		mkdir -p "$PATIENT_APP_APP_DIR"
+	else
+		echo "ERROR: PATIENT_APP_APP_DIR does not exist: $PATIENT_APP_APP_DIR" >&2
+		exit 1
+	fi
 fi
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -44,13 +49,22 @@ fi
 
 cd "$PATIENT_APP_APP_DIR"
 
-# Keep the server checkout aligned with the branch that triggered the deploy.
-# Use a hard reset because the branch on the deploy host can diverge after
-# force-pushes or local experimentation on the EC2 box.
-git fetch origin "$TARGET_BRANCH" --prune
-git checkout "$TARGET_BRANCH"
-git reset --hard "origin/$TARGET_BRANCH"
-git clean -fd
+if [[ -z "$PATIENT_APP_IMAGE" ]]; then
+	# Keep the server checkout aligned with the branch that triggered the deploy.
+	# Use a hard reset because the branch on the deploy host can diverge after
+	# force-pushes or local experimentation on the EC2 box.
+	git fetch origin "$TARGET_BRANCH" --prune
+	git checkout "$TARGET_BRANCH"
+	git reset --hard "origin/$TARGET_BRANCH"
+	git clean -fd
+else
+	echo "INFO: prebuilt image mode detected; skipping git sync on host"
+fi
+
+if [[ ! -f "$PATIENT_APP_COMPOSE_FILE" ]]; then
+	echo "ERROR: missing compose file in ${PATIENT_APP_APP_DIR}: ${PATIENT_APP_COMPOSE_FILE}" >&2
+	exit 1
+fi
 
 export PATIENT_APP_ENV_FILE
 export PATIENT_APP_NGINX_FILE="generated/default_ec2.conf"

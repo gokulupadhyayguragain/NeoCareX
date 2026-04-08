@@ -179,6 +179,30 @@ jobs:
             sleep 10
           done
 
+      - name: Upload compose file to EC2
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ vars.EC2_USER }}
+          EC2_APP_DIR: ${{ vars.EC2_APP_DIR }}
+        run: |
+          timeout 2m ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "${EC2_USER}@${EC2_HOST}" \
+            "mkdir -p '${EC2_APP_DIR}'"
+
+          for attempt in 1 2 3; do
+            echo "INFO: compose upload attempt ${attempt}/3"
+            if timeout 5m scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              docker-compose-gha.yaml "${EC2_USER}@${EC2_HOST}:${EC2_APP_DIR}/docker-compose-gha.yaml"; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "ERROR: failed to upload compose file after 3 attempts." >&2
+              exit 1
+            fi
+
+            sleep 10
+          done
+
       - name: Deploy on EC2
         env:
           TARGET_BRANCH: ${{ github.ref_name }}
