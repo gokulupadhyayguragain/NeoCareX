@@ -88,7 +88,7 @@ jobs:
       - name: Trust target host
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H "${{ vars.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -T 10 -H "${{ vars.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Deploy on EC2
         env:
@@ -103,7 +103,7 @@ jobs:
           PATIENT_APP_SERVER_NAME: ${{ vars.PATIENT_APP_SERVER_NAME }}
         run: |
           # Run one small server-side deploy script instead of embedding long SSH logic here.
-          ssh "${EC2_USER}@${EC2_HOST}" \
+          ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "${EC2_USER}@${EC2_HOST}" \
             "export TARGET_BRANCH='${TARGET_BRANCH}' \
              PATIENT_APP_ENV='${TARGET_ENV}' \
              PATIENT_APP_ENV_FILE='${DART_DEFINE_FILE}' \
