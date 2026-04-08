@@ -90,6 +90,16 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -T 10 -H "${{ vars.EC2_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
+      - name: Verify SSH reachability
+        env:
+          EC2_HOST: ${{ vars.EC2_HOST }}
+        run: |
+          if ! timeout 10 bash -c "cat < /dev/null > /dev/tcp/${EC2_HOST}/22" 2>/dev/null; then
+            echo "ERROR: GitHub runner cannot reach ${EC2_HOST}:22" >&2
+            echo "HINT: allow inbound TCP 22 from GitHub runner IPs (or use a self-hosted runner / SSM)." >&2
+            exit 1
+          fi
+
       - name: Deploy on EC2
         env:
           TARGET_BRANCH: ${{ github.ref_name }}
@@ -103,15 +113,27 @@ jobs:
           PATIENT_APP_SERVER_NAME: ${{ vars.PATIENT_APP_SERVER_NAME }}
         run: |
           # Run one small server-side deploy script instead of embedding long SSH logic here.
-          timeout 45m ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "${EC2_USER}@${EC2_HOST}" \
-            "export TARGET_BRANCH='${TARGET_BRANCH}' \
-             PATIENT_APP_ENV='${TARGET_ENV}' \
-             PATIENT_APP_ENV_FILE='${DART_DEFINE_FILE}' \
-             PATIENT_APP_DOMAIN='${PATIENT_APP_DOMAIN}' \
-             PATIENT_APP_TLS_DOMAIN='${PATIENT_APP_TLS_DOMAIN}' \
-             PATIENT_APP_SERVER_NAME='${PATIENT_APP_SERVER_NAME}' \
-             PATIENT_APP_APP_DIR='${EC2_APP_DIR}' \
-             PATIENT_APP_COMPOSE_FILE='docker-compose-gha.yaml'; bash -s" < scripts/deploy_ec2.sh
+          for attempt in 1 2 3; do
+            echo "INFO: remote deploy attempt ${attempt}/3"
+            if timeout 45m ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "${EC2_USER}@${EC2_HOST}" \
+              "export TARGET_BRANCH='${TARGET_BRANCH}' \
+               PATIENT_APP_ENV='${TARGET_ENV}' \
+               PATIENT_APP_ENV_FILE='${DART_DEFINE_FILE}' \
+               PATIENT_APP_DOMAIN='${PATIENT_APP_DOMAIN}' \
+               PATIENT_APP_TLS_DOMAIN='${PATIENT_APP_TLS_DOMAIN}' \
+               PATIENT_APP_SERVER_NAME='${PATIENT_APP_SERVER_NAME}' \
+               PATIENT_APP_APP_DIR='${EC2_APP_DIR}' \
+               PATIENT_APP_COMPOSE_FILE='docker-compose-gha.yaml'; bash -s" < scripts/deploy_ec2.sh; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo "ERROR: failed to connect and deploy after 3 attempts." >&2
+              exit 1
+            fi
+
+            sleep 10
+          done
 
       - name: Smoke test
         run: |
