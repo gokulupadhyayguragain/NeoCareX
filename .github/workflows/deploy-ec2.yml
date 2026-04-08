@@ -66,7 +66,7 @@ jobs:
           echo "github_environment=$target_env" >> "$GITHUB_OUTPUT"
           echo "dart_define_file=$define_file" >> "$GITHUB_OUTPUT"
 
-  deploy:
+  build_image:
     needs: prepare
     runs-on: ubuntu-latest
     environment:
@@ -101,8 +101,43 @@ jobs:
             -t "${PATIENT_APP_IMAGE}" \
             .
 
-          docker save "${PATIENT_APP_IMAGE}" | gzip > /tmp/patient-app-image.tar.gz
-          ls -lh /tmp/patient-app-image.tar.gz
+          docker save "${PATIENT_APP_IMAGE}" | gzip > patient-app-image.tar.gz
+          ls -lh patient-app-image.tar.gz
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: patient-app-image-${{ github.sha }}
+          path: patient-app-image.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs:
+      - prepare
+      - build_image
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.prepare.outputs.github_environment }}
+      url: ${{ vars.PATIENT_APP_URL }}
+    concurrency:
+      group: patient-app-ec2-${{ needs.prepare.outputs.github_environment }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: patient-app-image-${{ github.sha }}
+          path: .
+
+      - name: Verify image artifact
+        run: |
+          test -f patient-app-image.tar.gz
+          ls -lh patient-app-image.tar.gz
 
       - name: Load SSH key
         uses: webfactory/ssh-agent@v0.9.0
@@ -132,7 +167,7 @@ jobs:
           for attempt in 1 2 3; do
             echo "INFO: image upload attempt ${attempt}/3"
             if timeout 30m scp -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
-              /tmp/patient-app-image.tar.gz "${EC2_USER}@${EC2_HOST}:/tmp/patient-app-image.tar.gz"; then
+              patient-app-image.tar.gz "${EC2_USER}@${EC2_HOST}:/tmp/patient-app-image.tar.gz"; then
               break
             fi
 
