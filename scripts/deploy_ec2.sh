@@ -18,6 +18,27 @@ PATIENT_APP_TLS_DOMAIN="${PATIENT_APP_TLS_DOMAIN:-$PATIENT_APP_DOMAIN}"
 PATIENT_APP_COMPOSE_FILE="${PATIENT_APP_COMPOSE_FILE:-docker-compose-gha.yaml}"
 PATIENT_APP_CONTAINER_NAME="${PATIENT_APP_CONTAINER_NAME:-patient_app_${PATIENT_APP_ENV}}"
 
+if [[ ! -d "$PATIENT_APP_APP_DIR" ]]; then
+	echo "ERROR: PATIENT_APP_APP_DIR does not exist: $PATIENT_APP_APP_DIR" >&2
+	exit 1
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+	echo "ERROR: docker is not installed on target host." >&2
+	exit 1
+fi
+
+if ! docker compose version >/dev/null 2>&1; then
+	echo "ERROR: docker compose plugin is not available on target host." >&2
+	exit 1
+fi
+
+cert_dir="/etc/letsencrypt/live/${PATIENT_APP_TLS_DOMAIN}"
+if [[ ! -f "${cert_dir}/fullchain.pem" || ! -f "${cert_dir}/privkey.pem" ]]; then
+	echo "ERROR: TLS certificate files are missing under ${cert_dir}" >&2
+	exit 1
+fi
+
 cd "$PATIENT_APP_APP_DIR"
 
 # Keep the server checkout aligned with the branch that triggered the deploy.
